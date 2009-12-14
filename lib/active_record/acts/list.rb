@@ -21,8 +21,8 @@ module ActiveRecord
       # Configuration options are:
       #
       # * +column+ - specifies the column name to use for keeping the position integer (default: +position+)
-      # * +scope+ - restricts what is to be considered a list. Given a symbol, it'll attach <tt>_id</tt> 
-      #   (if it hasn't already been added) and use that as the foreign key restriction. It's also possible 
+      # * +scope+ - restricts what is to be considered a list. Given a symbol, it'll attach <tt>_id</tt>
+      #   (if it hasn't already been added) and use that as the foreign key restriction. It's also possible
       #   to give it an entire string that is interpolated if you need a tighter scope than just a foreign key.
       #   Example: <tt>acts_as_list :scope => 'todo_list_id = #{todo_list_id} AND completed = 0'</tt>
       def acts_as_list(options = {})
@@ -36,7 +36,7 @@ module ActiveRecord
           else
             proc {|r| { :conditions => r.instance_eval(%Q'"#{ scope }"') } }
           end
-        
+
         cattr_reader :position_column
         # Assigning a class variable literally from an extended class method is HARD.  http://www.ruby-forum.com/topic/97333
         class_variable_set :@@position_column, configuration[:column].to_s.dup
@@ -48,13 +48,18 @@ module ActiveRecord
       end
 
       module SingletonMethods
+        # Reorder the list elements according to the supplied array of ids.  Any elements not specified in the
+        # supplied array retain their relative order but are moved collectively below the last specified element.
         def order_by_ids(ids)
           first = find(ids.first)
+          unspecified = listed_with(first).all(:select => :id, :order => position_column, :conditions => ["#{primary_key} NOT IN (?)", ids]).map(&:id)
+          ids = ids + unspecified
           transaction do
             ids.each_with_index do |id, i|
               listed_with(first).update(id, {position_column => i + 1})
             end
           end
+          ids
         end
       end
 
@@ -249,7 +254,7 @@ module ActiveRecord
             update_attribute position_column, position
           end
         end
-      end 
+      end
     end
   end
 end
